@@ -34,3 +34,11 @@ table{width:100%;border-collapse:collapse;font:13px system-ui,sans-serif}
 th,td{padding:8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
 .sm{padding:5px 10px;font-size:11px;margin:2px}
 .stat{font-size:34px;color:var(--gold)}
+
+.img{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:3px;margin-bottom:12px;background:var(--line);display:block}
+.stars{color:var(--gold);letter-spacing:2px}
+.det{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:30px;margin-bottom:30px}
+.gal{display:flex;gap:8px;overflow-x:auto}.gal img{width:84px;height:58px;object-fit:cover;cursor:pointer;border-radius:3px}
+.chips span{display:inline-block;border:1px solid var(--line);padding:4px 10px;border-radius:14px;font:13px system-ui,sans-serif;margin:3px 3px 3px 0}
+.rev{border-bottom:1px solid var(--line);padding:12px 0;font-family:system-ui,sans-serif;font-size:14px}
+.note{font:12px system-ui,sans-serif;color:var(--muted)}

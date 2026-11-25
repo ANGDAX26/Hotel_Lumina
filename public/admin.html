@@ -14,13 +14,11 @@
 </div>
 <div id="app" style="display:none">
 <nav><span class="logo">Lumina · Admin</span>
-<div><a href="#" onclick="ver('resumen');return false">Resumen</a><a href="#" onclick="ver('reservas');return false">Reservaciones</a><a href="#" onclick="ver('habs');return false">Habitaciones</a><a href="/">Ver sitio</a><a href="#" onclick="salir();return false">Salir</a></div></nav>
+<div><a href="#" onclick="ver('resumen');return false">Resumen</a><a href="#" onclick="ver('reservas');return false">Reservaciones</a><a href="#" onclick="ver('habs');return false">Habitaciones</a><a href="#" onclick="ver('tipos');return false">Tipos</a><a href="#" onclick="ver('servs');return false">Servicios</a><a href="#" onclick="ver('pagos');return false">Pagos</a><a href="/">Ver sitio</a><a href="#" onclick="salir();return false">Salir</a></div></nav>
 <section id="v"></section>
 </div>
+<script src="/app.js"></script>
 <script>
-const $=id=>document.getElementById(id);
-const fmt=x=>'$'+Number(x).toLocaleString('es-MX',{minimumFractionDigits:2});
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let T=localStorage.getItem('tk')||'';
 async function api(p,body){
  const r=await fetch('/api/admin'+p,{method:body?'POST':'GET',headers:{'Content-Type':'application/json','x-token':T},body:body?JSON.stringify(body):undefined});
@@ -57,6 +55,19 @@ async function ver(v){
   };
   el.innerHTML=`<h2>Reservaciones</h2><p class="sub">Gestiona check-in, check-out, cargos y pagos</p><div class="wrap"><table><tr><th>#</th><th>Huésped</th><th>Hab.</th><th>Entrada</th><th>Salida</th><th>Estado</th><th>Hospedaje</th><th>Cargos</th><th>Pagado</th><th></th></tr>${d.map(r=>`<tr><td>${r.id_reservacion}</td><td>${esc(r.nombre_completo)}</td><td>${esc(r.numero_habitacion)} · ${esc(r.nombre_tipo)}</td><td>${f(r.fecha_checkin)}</td><td>${f(r.fecha_checkout)}</td><td><span class="badge">${esc(r.estado)}</span></td><td>${fmt(r.total_hospedaje)}</td><td>${fmt(r.cargos)}</td><td>${fmt(r.pagado)}</td><td>${acc(r)}</td></tr>`).join('')||'<tr><td colspan="10">Sin reservaciones todavía</td></tr>'}</table></div>`;
  }
+
+ if(v==='tipos'){
+  const d=await (await fetch('/api/tipos')).json();
+  el.innerHTML=`<h2>Tipos de habitación</h2><p class="sub">Imágenes: rutas como /img/doble.jpg o URLs completas, separadas por coma</p><div class="grid">${d.map(t=>`<div class="card" id="t${t.id_tipo}">${img(t.imagenes,t.nombre_tipo)}<label>Nombre<input name="nombre_tipo" value="${esc(t.nombre_tipo)}"></label><label>Descripción<input name="descripcion" value="${esc(t.descripcion)}"></label><label>Capacidad<input name="capacidad_personas" type="number" value="${t.capacidad_personas}"></label><label>Precio por noche<input name="precio_noche" type="number" value="${t.precio_noche}"></label><label>Amenidades (coma)<input name="amenidades" value="${esc(t.amenidades)}"></label><label>Imágenes (coma)<input name="imagenes" value="${esc(t.imagenes)}"></label><br><button class="btn sm" onclick="guardar('tipos',${t.id_tipo})">Guardar</button></div>`).join('')}</div>`;
+ }
+ if(v==='servs'){
+  const d=await (await fetch('/api/servicios')).json();
+  el.innerHTML=`<h2>Servicios</h2><p class="sub">Edita precio e imagen</p><div class="grid">${d.map(s=>`<div class="card" id="s${s.id_servicio}">${img(s.imagen_url,s.nombre_servicio)}<label>Nombre<input name="nombre_servicio" value="${esc(s.nombre_servicio)}"></label><label>Categoría<input name="categoria" value="${esc(s.categoria)}"></label><label>Precio<input name="precio" type="number" value="${s.precio}"></label><label>Imagen<input name="imagen_url" value="${esc(s.imagen_url)}"></label><br><button class="btn sm" onclick="guardar('servicios',${s.id_servicio})">Guardar</button></div>`).join('')}</div>`;
+ }
+ if(v==='pagos'){
+  const d=await api('/pagos');if(!d)return;
+  el.innerHTML=`<h2>Pagos</h2><p class="sub">Últimos movimientos (los reembolsos aparecen en negativo)</p><div class="wrap"><table><tr><th>Folio</th><th>Reserva</th><th>Huésped</th><th>Fecha</th><th>Método</th><th>Monto</th></tr>${d.map(p=>`<tr><td>${esc(p.folio_factura)}</td><td>#${p.id_reservacion}</td><td>${esc(p.nombre_completo)}</td><td>${String(p.fecha_pago).slice(0,10)}</td><td>${esc(p.metodo_pago)}</td><td>${fmt(p.monto)}</td></tr>`).join('')||'<tr><td colspan="6">Sin pagos todavía</td></tr>'}</table></div>`;
+ }
  if(v==='habs'){
   const d=await api('/habitaciones');if(!d)return;
   const E=['Disponible','Ocupada','Limpieza','Mantenimiento'];
@@ -78,6 +89,7 @@ async function pago(id,saldo){
  const met=prompt('Método: Efectivo, Tarjeta o Transferencia','Efectivo');
  if(await api(`/reservaciones/${id}/pago`,{monto:m,metodo:met}))ver('reservas');
 }
+async function guardar(k,id){const c=$((k==='tipos'?'t':'s')+id),b={};c.querySelectorAll('input').forEach(i=>b[i.name]=i.value);if(await api(`/${k}/${id}`,b))alert('Guardado')}
 if(T)mostrar();
 </script>
 </body>

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Habitación · Hotel Lumina</title><link rel="stylesheet" href="/styles.css"></head>
+<body>
+<nav><span class="logo">Lumina</span><div><a href="/">Inicio</a><a href="/mi-reserva.html">Mi reservación</a></div></nav>
+<section id="d">Cargando…</section>
+<script src="/app.js"></script>
+<script>
+const P=new URLSearchParams(location.search);
+(async()=>{
+ const r=await fetch('/api/tipos/'+(P.get('id')||0));const d=await r.json();
+ if(!r.ok){$('d').textContent='Habitación no encontrada';return}
+ const t=d.tipo,im=pics(t.imagenes);
+ document.title=t.nombre_tipo+' · Hotel Lumina';
+ $('d').innerHTML=`<a href="/">← Volver</a><br><br>
+ <div class="det"><div>${img(t.imagenes,t.nombre_tipo).replace('class="img"','class="img" id="main"')}
+ <div class="gal">${im.map(u=>`<img src="${esc(u)}" alt="" onerror="this.style.display='none'" onclick="$('main').src=this.src">`).join('')}</div></div>
+ <div><h2>${esc(t.nombre_tipo)}</h2>
+ <p>${stars(t.rating)} <b>${t.rating||'—'}</b> · ${t.n_resenas} reseña(s)</p>
+ <p>${esc(t.descripcion)}</p><p>Capacidad: hasta ${t.capacidad_personas} persona(s)</p>
+ <div class="chips">${pics(t.amenidades.replace(/;/g,',')).map(a=>`<span>✓ ${esc(a)}</span>`).join('')}</div>
+ <div class="price" style="margin:14px 0">${fmt(t.precio_noche)} <small>/ noche</small></div>
+ <form class="search" id="q" style="margin:0">
+ <label>Check-in<input name="ci" type="date" required value="${esc(P.get('ci')||'')}"></label>
+ <label>Check-out<input name="co" type="date" required value="${esc(P.get('co')||'')}"></label>
+ <label>Huéspedes<input name="num" type="number" min="1" value="${esc(P.get('num')||2)}"></label>
+ <button class="btn" type="submit">Ver disponibilidad</button></form><div id="av" style="margin-top:14px;font-family:system-ui,sans-serif"></div></div></div>
+ <h2>Opiniones de huéspedes</h2><br>${d.resenas.map(x=>`<div class="rev">${stars(x.calificacion)} <b>${esc(x.nombre)}</b> · ${String(x.fecha).slice(0,10)}<br>${esc(x.comentario)}</div>`).join('')||'<p class="sub">Aún no hay reseñas.</p>'}`;
+ const hoy=new Date().toISOString().slice(0,10);
+ $('q').ci.min=hoy;$('q').co.min=hoy;
+ $('q').onsubmit=async e=>{
+  e.preventDefault();const f=e.target;
+  const r=await fetch(`/api/disponibilidad?ci=${f.ci.value}&co=${f.co.value}&num=${f.num.value}`);const x=await r.json();
+  if(!r.ok){$('av').innerHTML=`<b>${esc(x.error)}</b>`;return}
+  const m=x.tipos.find(y=>y.id_tipo==t.id_tipo);
+  $('av').innerHTML=m&&m.disponibles?`<b>Disponible</b> · quedan ${m.disponibles} · ${x.noches} noche(s) = <b style="color:var(--gold)">${fmt(m.precio_noche*x.noches)}</b><br><br><a class="btn" href="/?ci=${f.ci.value}&co=${f.co.value}&num=${f.num.value}&tipo=${t.id_tipo}">Reservar esta habitación</a>`:'<b>No disponible en esas fechas o para esa cantidad de huéspedes.</b>';
+ };
+ if(P.get('ci')&&P.get('co'))$('q').requestSubmit();
+})();
+</script>
+</body>
+</html>

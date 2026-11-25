@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Mi reservación · Hotel Lumina</title><link rel="stylesheet" href="/styles.css"></head>
+<body>
+<nav><span class="logo">Lumina</span><div><a href="/">Inicio</a></div></nav>
+<section>
+<h2>Mi reservación</h2><p class="sub">Consulta, paga, cancela u opina con tu folio y tu INE o pasaporte</p>
+<form id="b"><label>Folio<input name="folio" inputmode="numeric" required></label><label>INE o pasaporte<input name="doc" required></label><div class="full"><button class="btn" type="submit">Buscar</button></div></form>
+<div id="r" style="margin-top:24px"></div>
+</section>
+<script src="/app.js"></script>
+<script>
+let B={};
+$('b').onsubmit=e=>{e.preventDefault();B=Object.fromEntries(new FormData(e.target));cargar()};
+async function cargar(msg){
+ const {ok,d}=await post('/api/mi-reserva',B);
+ if(!ok){$('r').innerHTML=`<b>${esc(d.error)}</b>`;return}
+ const saldo=Math.round((d.total+d.cargos-d.pagado)*100)/100,f=x=>String(x).slice(0,10);
+ $('r').innerHTML=`${msg?`<p style="background:var(--surface);border:1px solid var(--gold);padding:12px;border-radius:4px;font-family:system-ui,sans-serif">${msg}</p>`:''}
+ <div class="card" style="max-width:560px">${img(d.imagenes,d.nombre_tipo)}<h3>Folio #${d.folio} · ${esc(d.nombre_tipo)} <span class="badge">${esc(d.estado)}</span></h3>
+ <p>Habitación ${esc(d.numero_habitacion)} · ${f(d.fecha_checkin)} → ${f(d.fecha_checkout)} · ${d.num_huespedes} huésped(es)<br>Huésped: ${esc(d.nombre_completo)}</p>
+ <p>Hospedaje: ${fmt(d.total)}<br>Cargos extra: ${fmt(d.cargos)}<br>Pagado: ${fmt(d.pagado)}<br><b>Saldo: ${fmt(Math.max(saldo,0))}</b></p>
+ ${saldo>0&&d.estado!=='Cancelada'?`<button class="btn sm" onclick="$('pf').style.display='grid'">Pagar saldo</button> `:''}
+ ${d.estado==='Confirmada'?`<button class="btn sm" onclick="cancelar()">Cancelar reservación</button>`:''}
+ <form id="pf" style="display:none;margin-top:14px">${cardHTML}<div class="full"><button class="btn sm" type="submit">Pagar ${fmt(saldo)}</button></div></form>
+ ${d.estado==='Finalizada'&&!d.resenada?`<form id="rf" style="margin-top:14px"><label>Calificación<select name="calificacion"><option value="5">★★★★★ Excelente</option><option value="4">★★★★ Muy bueno</option><option value="3">★★★ Regular</option><option value="2">★★ Malo</option><option value="1">★ Muy malo</option></select></label><label>Comentario<input name="comentario" maxlength="500"></label><div class="full"><button class="btn sm" type="submit">Enviar reseña</button></div></form>`:''}
+ </div>`;
+ if($('pf'))$('pf').onsubmit=async e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));const x=await post('/api/mi-reserva/pagar',{...B,pago:{metodo:'tarjeta',numero:f.numero,exp:f.exp,cvv:f.cvv}});x.ok?cargar('✅ Pago recibido: '+fmt(x.d.monto)):alert(x.d.error)};
+ if($('rf'))$('rf').onsubmit=async e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));const x=await post('/api/resenas',{...B,...f});x.ok?cargar('¡Gracias por tu opinión!'):alert(x.d.error)};
+}
+async function cancelar(){
+ if(!confirm('¿Seguro que quieres cancelar esta reservación? Si ya pagaste, se registrará el reembolso.'))return;
+ const x=await post('/api/mi-reserva/cancelar',B);
+ x.ok?cargar('Reservación cancelada'+(x.d.reembolso>0?'. Reembolso registrado: '+fmt(x.d.reembolso):'')):alert(x.d.error);
+}
+</script>
+</body>
+</html>
