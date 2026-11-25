@@ -14,7 +14,7 @@
 </div>
 <div id="app" style="display:none">
 <nav><span class="logo">Lumina · Admin</span>
-<div><a href="#" onclick="ver('resumen');return false">Resumen</a><a href="#" onclick="ver('reservas');return false">Reservaciones</a><a href="#" onclick="ver('habs');return false">Habitaciones</a><a href="#" onclick="ver('tipos');return false">Tipos</a><a href="#" onclick="ver('servs');return false">Servicios</a><a href="#" onclick="ver('pagos');return false">Pagos</a><a href="/">Ver sitio</a><a href="#" onclick="salir();return false">Salir</a></div></nav>
+<div><a href="#" onclick="ver('resumen');return false">Resumen</a><a href="#" onclick="ver('reservas');return false">Reservaciones</a><a href="#" onclick="ver('habs');return false">Habitaciones</a><a href="#" onclick="ver('tipos');return false">Tipos</a><a href="#" onclick="ver('servs');return false">Servicios</a><a href="#" onclick="ver('pagos');return false">Pagos</a><a href="#" onclick="ver('mesas');return false">Mesas</a><a href="#" onclick="ver('rmesas');return false">Reservas de mesa</a><a href="/">Ver sitio</a><a href="#" onclick="salir();return false">Salir</a></div></nav>
 <section id="v"></section>
 </div>
 <script src="/app.js"></script>
@@ -68,6 +68,19 @@ async function ver(v){
   const d=await api('/pagos');if(!d)return;
   el.innerHTML=`<h2>Pagos</h2><p class="sub">Últimos movimientos (los reembolsos aparecen en negativo)</p><div class="wrap"><table><tr><th>Folio</th><th>Reserva</th><th>Huésped</th><th>Fecha</th><th>Método</th><th>Monto</th></tr>${d.map(p=>`<tr><td>${esc(p.folio_factura)}</td><td>#${p.id_reservacion}</td><td>${esc(p.nombre_completo)}</td><td>${String(p.fecha_pago).slice(0,10)}</td><td>${esc(p.metodo_pago)}</td><td>${fmt(p.monto)}</td></tr>`).join('')||'<tr><td colspan="6">Sin pagos todavía</td></tr>'}</table></div>`;
  }
+
+ if(v==='mesas'){
+  const d=await api('/mesas');if(!d)return;
+  el.innerHTML=`<h2>Mesas del restaurante</h2><p class="sub">Agrega mesas o desactívalas (las desactivadas no se pueden reservar)</p>
+  <form id="nm" style="margin-bottom:26px"><label>Número<input name="numero" required placeholder="M7"></label><label>Capacidad<input name="capacidad" type="number" min="1" required value="4"></label><label>Zona<input name="zona" value="Salón"></label><div class="full"><button class="btn" type="submit">Agregar mesa</button></div></form>
+  <div class="grid">${d.map(m=>`<div class="card" id="m${m.id_mesa}"><h3>Mesa ${esc(m.numero)}</h3><label>Número<input name="numero" value="${esc(m.numero)}"></label><label>Capacidad<input name="capacidad" type="number" value="${m.capacidad}"></label><label>Zona<input name="zona" value="${esc(m.zona)}"></label><label style="flex-direction:row;gap:8px;align-items:center"><input type="checkbox" name="activa" ${m.activa?'checked':''}> Activa</label><br><button class="btn sm" onclick="guardarMesa(${m.id_mesa})">Guardar</button></div>`).join('')}</div>`;
+  $('nm').onsubmit=async e=>{e.preventDefault();if(await api('/mesas',Object.fromEntries(new FormData(e.target))))ver('mesas')};
+ }
+ if(v==='rmesas'){
+  const d=await api('/reservas-mesa');if(!d)return;
+  const b=(id,t,s)=>`<button class="btn sm" onclick="estRM(${id},'${s}')">${t}</button>`;
+  el.innerHTML=`<h2>Reservas de mesa</h2><p class="sub">Marca como completada o cancela</p><div class="wrap"><table><tr><th>#</th><th>Mesa</th><th>Nombre</th><th>Teléfono</th><th>Fecha</th><th>Hora</th><th>Pers.</th><th>Estado</th><th></th></tr>${d.map(r=>`<tr><td>${r.id_reserva_mesa}</td><td>${esc(r.numero)}</td><td>${esc(r.nombre)}</td><td>${esc(r.telefono)}</td><td>${r.fecha}</td><td>${r.hora}</td><td>${r.personas}</td><td><span class="badge">${esc(r.estado)}</span></td><td>${r.estado==='Confirmada'?b(r.id_reserva_mesa,'Completada','Completada')+b(r.id_reserva_mesa,'Cancelar','Cancelada'):''}</td></tr>`).join('')||'<tr><td colspan="9">Sin reservas de mesa</td></tr>'}</table></div>`;
+ }
  if(v==='habs'){
   const d=await api('/habitaciones');if(!d)return;
   const E=['Disponible','Ocupada','Limpieza','Mantenimiento'];
@@ -90,6 +103,8 @@ async function pago(id,saldo){
  if(await api(`/reservaciones/${id}/pago`,{monto:m,metodo:met}))ver('reservas');
 }
 async function guardar(k,id){const c=$((k==='tipos'?'t':'s')+id),b={};c.querySelectorAll('input').forEach(i=>b[i.name]=i.value);if(await api(`/${k}/${id}`,b))alert('Guardado')}
+async function guardarMesa(id){const c=$('m'+id),q=n=>c.querySelector('[name='+n+']');if(await api('/mesas/'+id,{numero:q('numero').value,capacidad:q('capacidad').value,zona:q('zona').value,activa:q('activa').checked}))alert('Guardado')}
+async function estRM(id,estado){if(confirm('¿Marcar como '+estado+'?')&&await api(`/reservas-mesa/${id}/estado`,{estado}))ver('rmesas')}
 if(T)mostrar();
 </script>
 </body>

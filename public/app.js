@@ -7,3 +7,8 @@ const pics=s=>(s||'').split(',').map(x=>x.trim()).filter(Boolean);
 const img=(s,t,c='img')=>`<img class="${c}" loading="lazy" src="${esc(pics(s)[0]||ph(t))}" alt="${esc(t)}" data-t="${esc(t)}" onerror="this.onerror=null;this.src=ph(this.dataset.t)">`;
 const post=async(u,b)=>{const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});return {ok:r.ok,d:await r.json()}};
 const cardHTML=`<label>Número de tarjeta<input name="numero" inputmode="numeric" autocomplete="cc-number" placeholder="4242 4242 4242 4242"></label><label>Vence (MM/AA)<input name="exp" placeholder="12/28" maxlength="5"></label><label>CVV<input name="cvv" inputmode="numeric" maxlength="4" placeholder="123"></label><p class="note full">Pago simulado de demostración: no se guarda el número de tarjeta. Prueba con 4242 4242 4242 4242 (aprobada) o 4000 0000 0000 0002 (rechazada), cualquier fecha futura y CVV.</p>`;
+
+const _io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');_io.unobserve(e.target)}}),{threshold:.08});
+const _obs=()=>document.querySelectorAll('.card:not(.seen),.rev:not(.seen),section>h2:not(.seen)').forEach(n=>{n.classList.add('seen');_io.observe(n)});
+new MutationObserver(_obs).observe(document.documentElement,{childList:true,subtree:true});
+addEventListener('DOMContentLoaded',_obs);

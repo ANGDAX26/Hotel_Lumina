@@ -2,8 +2,8 @@
 <html lang="es">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Hotel Lumina</title><link rel="stylesheet" href="/styles.css"></head>
 <body>
-<nav><span class="logo">Lumina</span><div><a href="#habitaciones">Habitaciones</a><a href="#servicios">Servicios</a><a href="/mi-reserva.html">Mi reservación</a><a href="/admin.html">Administrar</a></div></nav>
-<header class="hero" style="padding:70px 5vw 60px">
+<nav><span class="logo">Lumina</span><div><a href="#habitaciones">Habitaciones</a><a href="#restaurante">Restaurante</a><a href="#servicios">Servicios</a><a href="/mi-reserva.html">Mi reservación</a><a href="/admin.html">Administrar</a></div></nav>
+<header class="hero"><div class="blob b1"></div><div class="blob b2"></div>
 <h1>Encuentra tu habitación en Lumina</h1><p>Elige tus fechas y reserva al instante.</p>
 <form class="search" id="bus">
 <label>Check-in<input name="ci" type="date" required></label>
@@ -27,6 +27,16 @@
 </form>
 <div id="ok" style="display:none;margin-top:20px;background:var(--surface);border:1px solid var(--gold);padding:22px;border-radius:4px;font-family:system-ui,sans-serif"></div>
 </section>
+<section id="restaurante"><h2>Restaurante Lumina</h2><p class="sub">Reserva tu mesa para comer o cenar</p>
+<form class="search" id="mf" style="margin:0 0 24px;max-width:none">
+<label>Fecha<input type="date" name="fecha" required></label>
+<label>Hora<select name="hora"><option>13:00</option><option>14:00</option><option>15:00</option><option>18:00</option><option>19:00</option><option selected>20:00</option><option>21:00</option></select></label>
+<label>Personas<input type="number" name="personas" min="1" value="2" required></label>
+<button class="btn" type="submit">Ver mesas</button></form>
+<div class="grid" id="mesas"></div>
+<div id="mdat" style="display:none;margin-top:24px"><h3 style="font-weight:400;font-size:22px">Confirma tu mesa</h3><p class="sub" id="mresumen"></p>
+<form id="mg"><label>Nombre<input name="nombre" required></label><label>Teléfono<input name="telefono" type="tel"></label><div class="full"><button class="btn" type="submit">Reservar mesa</button></div></form>
+<div id="mok" class="okbox" style="display:none"></div></div></section>
 <section id="habitaciones"><h2>Nuestras habitaciones</h2><p class="sub">Tarifas por noche en MXN</p><div class="grid" id="tipos">Cargando…</div></section>
 <section id="servicios"><h2>Servicios y amenidades</h2><p class="sub">Cargos que se agregan a su habitación</p><div class="grid" id="servs">Cargando…</div></section>
 <footer>© 2026 Hotel Lumina · Todos los derechos reservados</footer>
@@ -70,6 +80,18 @@ $('g').onsubmit=async e=>{
  }catch(x){$('ok').style.display='block';$('ok').innerHTML='<b>Error de conexión. Intenta de nuevo.</b>'}
  b.disabled=false;
 };
+
+const hoyM=new Date().toISOString().slice(0,10);let M={};
+document.querySelector('#mf [name=fecha]').min=hoyM;
+$('mf').onsubmit=async e=>{e.preventDefault();const f=e.target;M={fecha:f.fecha.value,hora:f.hora.value,personas:f.personas.value};
+ const r=await fetch(`/api/mesas/disponibles?fecha=${M.fecha}&hora=${M.hora}&personas=${M.personas}`);const d=await r.json();
+ $('mdat').style.display='none';
+ $('mesas').innerHTML=r.ok?(d.map(m=>`<div class="card"><h3>Mesa ${esc(m.numero)}</h3><p>${esc(m.zona)} · hasta ${m.capacidad} personas</p><button class="btn sm" onclick="elegirMesa(${m.id_mesa},'${esc(m.numero)}')">Reservar</button></div>`).join('')||'<p>No hay mesas libres a esa hora. Prueba otro horario.</p>'):`<b>${esc(d.error)}</b>`};
+function elegirMesa(id,n){M.id_mesa=id;$('mresumen').textContent=`Mesa ${n} · ${M.fecha} · ${M.hora} · ${M.personas} persona(s)`;$('mok').style.display='none';$('mdat').style.display='block';$('mdat').scrollIntoView({behavior:'smooth'})}
+$('mg').onsubmit=async e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));
+ const {ok,d}=await post('/api/mesas/reservar',{...M,...f});$('mok').style.display='block';
+ $('mok').innerHTML=ok?`<b>¡Mesa reservada!</b> Folio #${d.folio} · Mesa ${esc(d.mesa)} · ${esc(M.fecha)} a las ${esc(M.hora)}`:`<b>${esc(d.error)}</b>`;
+ if(ok){e.target.reset();$('mesas').innerHTML=''}};
 </script>
 </body>
 </html>

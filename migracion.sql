@@ -11,15 +11,15 @@ CREATE TABLE IF NOT EXISTS resenas (
   comentario TEXT,
   fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
 
-UPDATE tipos_habitacion SET imagenes='/img/sencilla.webp', amenidades='Wi-Fi gratis,Aire acondicionado,TV por cable,Baño privado,Escritorio' WHERE nombre_tipo='Sencilla' AND imagenes IS NULL;
+UPDATE tipos_habitacion SET imagenes='/img/sencilla.jpg', amenidades='Wi-Fi gratis,Aire acondicionado,TV por cable,Baño privado,Escritorio' WHERE nombre_tipo='Sencilla' AND imagenes IS NULL;
 UPDATE tipos_habitacion SET imagenes='/img/doble.jpg', amenidades='Wi-Fi gratis,Aire acondicionado,TV por cable,Dos camas matrimoniales,Minibar' WHERE nombre_tipo='Doble' AND imagenes IS NULL;
 UPDATE tipos_habitacion SET imagenes='/img/junior-suite.jpg', amenidades='Wi-Fi gratis,Aire acondicionado,Cama king,Sala integrada,Minibar,Vista panorámica' WHERE nombre_tipo='Junior Suite' AND imagenes IS NULL;
 UPDATE tipos_habitacion SET imagenes='/img/master-suite.jpg', amenidades='Wi-Fi gratis,Aire acondicionado,Cama king,Sala y comedor,Terraza privada,Jacuzzi,Minibar' WHERE nombre_tipo='Master Suite' AND imagenes IS NULL;
 
-UPDATE servicios SET imagen_url='/img/desayuno.webp' WHERE nombre_servicio='Desayuno Buffet' AND imagen_url IS NULL;
-UPDATE servicios SET imagen_url='/img/room-service.webp' WHERE nombre_servicio='Room Service' AND imagen_url IS NULL;
-UPDATE servicios SET imagen_url='/img/spa.webp' WHERE nombre_servicio='Spa' AND imagen_url IS NULL;
-UPDATE servicios SET imagen_url='/img/lavanderia.webp' WHERE nombre_servicio='Lavandería' AND imagen_url IS NULL;
+UPDATE servicios SET imagen_url='/img/desayuno.jpg' WHERE nombre_servicio='Desayuno Buffet' AND imagen_url IS NULL;
+UPDATE servicios SET imagen_url='/img/room-service.jpg' WHERE nombre_servicio='Room Service' AND imagen_url IS NULL;
+UPDATE servicios SET imagen_url='/img/spa.jpg' WHERE nombre_servicio='Spa' AND imagen_url IS NULL;
+UPDATE servicios SET imagen_url='/img/lavanderia.jpg' WHERE nombre_servicio='Lavandería' AND imagen_url IS NULL;
 
 INSERT INTO resenas (id_tipo, nombre, calificacion, comentario)
 SELECT (SELECT id_tipo FROM tipos_habitacion WHERE nombre_tipo = t), n, c, m

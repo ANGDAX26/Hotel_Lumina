@@ -276,4 +276,65 @@ app.get('/api/admin/pagos', auth, wrap(async (_req, res) => {
   res.json(r.rows);
 }));
 
+
+// ---------- Restaurante: mesas y reservas de mesa ----------
+app.get('/api/mesas/disponibles', wrap(async (req, res) => {
+  const { fecha, hora, personas } = req.query;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha || '') || !/^\d{2}:\d{2}$/.test(hora || '')) return res.status(400).json({ error: 'Elige fecha y hora' });
+  const r = await pool.query(`SELECT m.id_mesa, m.numero, m.zona, m.capacidad FROM mesas m
+    WHERE m.activa AND m.capacidad >= $3 AND NOT EXISTS (SELECT 1 FROM reservas_mesa r
+      WHERE r.id_mesa = m.id_mesa AND r.fecha = $1::date AND r.hora = $2::time AND r.estado = 'Confirmada')
+    ORDER BY m.capacidad, m.numero`, [fecha, hora, +personas || 1]);
+  res.json(r.rows);
+}));
+app.post('/api/mesas/reservar', wrap(async (req, res) => {
+  const b = req.body || {};
+  if (!b.nombre || !b.id_mesa || !b.fecha || !b.hora) return res.status(400).json({ error: 'Faltan datos' });
+  if (b.fecha < new Date().toISOString().slice(0, 10)) return res.status(400).json({ error: 'La fecha ya pasó' });
+  const m = await pool.query('SELECT numero, capacidad FROM mesas WHERE id_mesa = $1 AND activa', [b.id_mesa]);
+  if (!m.rows[0] || m.rows[0].capacidad < (+b.personas || 1)) return res.status(400).json({ error: 'Mesa no disponible para esa cantidad de personas' });
+  try {
+    const r = await pool.query('INSERT INTO reservas_mesa (id_mesa, nombre, telefono, fecha, hora, personas) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id_reserva_mesa',
+      [b.id_mesa, b.nombre, b.telefono || null, b.fecha, b.hora, +b.personas || 1]);
+    res.json({ ok: true, folio: r.rows[0].id_reserva_mesa, mesa: m.rows[0].numero });
+  } catch (e) {
+    if (e.code === '23505') return res.status(409).json({ error: 'Esa mesa se acaba de reservar. Elige otra.' });
+    throw e;
+  }
+}));
+app.get('/api/admin/mesas', auth, wrap(async (_req, res) => {
+  res.json((await pool.query('SELECT * FROM mesas ORDER BY numero')).rows);
+}));
+app.post('/api/admin/mesas', auth, wrap(async (req, res) => {
+  const b = req.body || {};
+  if (!b.numero || !(+b.capacidad > 0)) return res.status(400).json({ error: 'Número y capacidad son obligatorios' });
+  try {
+    await pool.query('INSERT INTO mesas (numero, zona, capacidad) VALUES ($1,$2,$3)', [b.numero, b.zona || 'Salón', +b.capacidad]);
+    res.json({ ok: true });
+  } catch (e) {
+    if (e.code === '23505') return res.status(409).json({ error: 'Ya existe una mesa con ese número' });
+    throw e;
+  }
+}));
+app.post('/api/admin/mesas/:id', auth, wrap(async (req, res) => {
+  const b = req.body || {};
+  try {
+    await pool.query('UPDATE mesas SET numero=$1, zona=$2, capacidad=$3, activa=$4 WHERE id_mesa=$5', [b.numero, b.zona, +b.capacidad, !!b.activa, req.params.id]);
+    res.json({ ok: true });
+  } catch (e) {
+    if (e.code === '23505') return res.status(409).json({ error: 'Ya existe una mesa con ese número' });
+    throw e;
+  }
+}));
+app.get('/api/admin/reservas-mesa', auth, wrap(async (_req, res) => {
+  res.json((await pool.query(`SELECT r.id_reserva_mesa, m.numero, r.nombre, r.telefono, to_char(r.fecha,'YYYY-MM-DD') AS fecha,
+    to_char(r.hora,'HH24:MI') AS hora, r.personas, r.estado FROM reservas_mesa r JOIN mesas m ON m.id_mesa = r.id_mesa
+    ORDER BY r.fecha DESC, r.hora DESC LIMIT 200`)).rows);
+}));
+app.post('/api/admin/reservas-mesa/:id/estado', auth, wrap(async (req, res) => {
+  if (!['Completada', 'Cancelada'].includes(req.body.estado)) return res.status(400).json({ error: 'Estado inválido' });
+  await pool.query('UPDATE reservas_mesa SET estado = $1 WHERE id_reserva_mesa = $2', [req.body.estado, req.params.id]);
+  res.json({ ok: true });
+}));
+
 app.listen(process.env.PORT || 3000, () => console.log('Hotel Lumina en línea'));
