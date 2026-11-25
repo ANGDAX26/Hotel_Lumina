@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel · Hotel Lumina</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div id="login" style="max-width:340px;margin:12vh auto;padding:0 20px">
+<h2>Panel Lumina</h2><p class="sub">Acceso del administrador</p>
+<input id="pw" type="password" placeholder="Contraseña" style="width:100%;margin-bottom:10px">
+<button class="btn" onclick="entrar()">Entrar</button>
+</div>
+<div id="app" style="display:none">
+<nav><span class="logo">Lumina · Admin</span>
+<div><a href="#" onclick="ver('resumen');return false">Resumen</a><a href="#" onclick="ver('reservas');return false">Reservaciones</a><a href="#" onclick="ver('habs');return false">Habitaciones</a><a href="/">Ver sitio</a><a href="#" onclick="salir();return false">Salir</a></div></nav>
+<section id="v"></section>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const fmt=x=>'$'+Number(x).toLocaleString('es-MX',{minimumFractionDigits:2});
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let T=localStorage.getItem('tk')||'';
+async function api(p,body){
+ const r=await fetch('/api/admin'+p,{method:body?'POST':'GET',headers:{'Content-Type':'application/json','x-token':T},body:body?JSON.stringify(body):undefined});
+ const d=await r.json();
+ if(r.status===401&&p!=='/login'){salir();return null}
+ if(!r.ok){alert(d.error||'Error');return null}
+ return d;
+}
+async function entrar(){
+ const d=await api('/login',{password:$('pw').value});
+ if(d){T=d.token;localStorage.setItem('tk',T);mostrar()}
+}
+function salir(){T='';localStorage.removeItem('tk');$('app').style.display='none';$('login').style.display='block'}
+function mostrar(){$('login').style.display='none';$('app').style.display='block';ver('resumen')}
+$('pw').addEventListener('keydown',e=>{if(e.key==='Enter')entrar()});
+
+async function ver(v){
+ const el=$('v');el.innerHTML='Cargando…';
+ if(v==='resumen'){
+  const d=await api('/resumen');if(!d)return;
+  const hab=d.hab.map(h=>`<div class="card"><div class="stat">${h.n}</div><p>${esc(h.estado)}</p></div>`).join('');
+  el.innerHTML=`<h2>Resumen</h2><p class="sub">Estado actual del hotel</p><div class="grid"><div class="card"><div class="stat">${d.confirmadas}</div><p>Reservas confirmadas</p></div><div class="card"><div class="stat">${d.en_curso}</div><p>Huéspedes en curso</p></div><div class="card"><div class="stat">${fmt(d.ingresos)}</div><p>Pagos registrados</p></div></div><h2 style="margin-top:34px;font-size:22px">Habitaciones por estado</h2><br><div class="grid">${hab}</div>`;
+ }
+ if(v==='reservas'){
+  const d=await api('/reservaciones');if(!d)return;
+  const f=x=>String(x).slice(0,10);
+  const acc=r=>{
+   const b=(t,fn)=>`<button class="btn sm" onclick="${fn}">${t}</button>`;
+   let a='';
+   if(r.estado==='Confirmada')a=b('Check-in',`est(${r.id_reservacion},'En curso')`)+b('Cancelar',`est(${r.id_reservacion},'Cancelada')`);
+   if(r.estado==='En curso')a=b('Check-out',`est(${r.id_reservacion},'Finalizada')`)+b('+ Cargo',`cargo(${r.id_reservacion})`);
+   if(r.estado!=='Cancelada')a+=b('Pago',`pago(${r.id_reservacion},${(+r.total_hospedaje+ +r.cargos- +r.pagado).toFixed(2)})`);
+   return a;
+  };
+  el.innerHTML=`<h2>Reservaciones</h2><p class="sub">Gestiona check-in, check-out, cargos y pagos</p><div class="wrap"><table><tr><th>#</th><th>Huésped</th><th>Hab.</th><th>Entrada</th><th>Salida</th><th>Estado</th><th>Hospedaje</th><th>Cargos</th><th>Pagado</th><th></th></tr>${d.map(r=>`<tr><td>${r.id_reservacion}</td><td>${esc(r.nombre_completo)}</td><td>${esc(r.numero_habitacion)} · ${esc(r.nombre_tipo)}</td><td>${f(r.fecha_checkin)}</td><td>${f(r.fecha_checkout)}</td><td><span class="badge">${esc(r.estado)}</span></td><td>${fmt(r.total_hospedaje)}</td><td>${fmt(r.cargos)}</td><td>${fmt(r.pagado)}</td><td>${acc(r)}</td></tr>`).join('')||'<tr><td colspan="10">Sin reservaciones todavía</td></tr>'}</table></div>`;
+ }
+ if(v==='habs'){
+  const d=await api('/habitaciones');if(!d)return;
+  const E=['Disponible','Ocupada','Limpieza','Mantenimiento'];
+  el.innerHTML=`<h2>Habitaciones</h2><p class="sub">Cambia el estado de cada cuarto</p><div class="grid">${d.map(h=>`<div class="card"><h3>${esc(h.numero_habitacion)}</h3><p>${esc(h.nombre_tipo)} · piso ${h.piso}</p><select onchange="estHab(${h.id_habitacion},this.value)">${E.map(x=>`<option ${x===h.estado?'selected':''}>${x}</option>`).join('')}</select></div>`).join('')}</div>`;
+ }
+}
+async function est(id,estado){if(confirm('¿Cambiar a '+estado+'?')){if(await api(`/reservaciones/${id}/estado`,{estado}))ver('reservas')}}
+async function estHab(id,estado){await api(`/habitaciones/${id}/estado`,{estado})}
+async function cargo(id){
+ const s=await (await fetch('/api/servicios')).json();
+ const n=+prompt('Número de servicio:\n'+s.map((x,i)=>`${i+1}) ${x.nombre_servicio} - ${fmt(x.precio)}`).join('\n'));
+ if(!s[n-1])return;
+ const c=+prompt('Cantidad','1')||1;
+ if(await api(`/reservaciones/${id}/cargo`,{id_servicio:s[n-1].id_servicio,cantidad:c}))ver('reservas');
+}
+async function pago(id,saldo){
+ const m=prompt('Monto a pagar (saldo pendiente: '+fmt(saldo)+')',saldo>0?saldo:'');
+ if(!m)return;
+ const met=prompt('Método: Efectivo, Tarjeta o Transferencia','Efectivo');
+ if(await api(`/reservaciones/${id}/pago`,{monto:m,metodo:met}))ver('reservas');
+}
+if(T)mostrar();
+</script>
+</body>
+</html>

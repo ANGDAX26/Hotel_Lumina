@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hotel Lumina</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<nav><span class="logo">Lumina</span><div><a href="#habitaciones">Habitaciones</a><a href="#servicios">Servicios</a><a href="/admin.html">Administrar</a></div></nav>
+<header class="hero" style="padding:70px 5vw 60px">
+<h1>Encuentra tu habitación en Lumina</h1>
+<p>Elige tus fechas y reserva al instante.</p>
+<form class="search" id="bus">
+<label>Check-in<input name="ci" type="date" required></label>
+<label>Check-out<input name="co" type="date" required></label>
+<label>Huéspedes<input name="num" type="number" min="1" value="2" required></label>
+<button class="btn" type="submit">Buscar</button>
+</form>
+</header>
+
+<section id="resultados" style="display:none">
+<h2>Habitaciones disponibles</h2><p class="sub" id="info"></p><div class="grid" id="res"></div>
+</section>
+
+<section id="datos" style="display:none">
+<h2>Tus datos</h2><p class="sub" id="resumen"></p>
+<form id="g">
+<label>Nombre completo<input name="nombre" required></label>
+<label>INE o pasaporte<input name="doc" required></label>
+<label>Teléfono<input name="tel" type="tel"></label>
+<label>Correo<input name="correo" type="email"></label>
+<label>RFC (opcional)<input name="rfc" maxlength="13"></label>
+<div class="full"><button class="btn" id="btn" type="submit">Confirmar reservación</button></div>
+</form>
+<div id="ok" style="display:none;margin-top:20px;background:var(--surface);border:1px solid var(--gold);padding:22px;border-radius:4px;font-family:system-ui,sans-serif"></div>
+</section>
+
+<section id="habitaciones"><h2>Nuestras habitaciones</h2><p class="sub">Tarifas por noche en MXN</p><div class="grid" id="tipos">Cargando…</div></section>
+<section id="servicios"><h2>Servicios y amenidades</h2><p class="sub">Cargos que se agregan a su habitación</p><div class="grid" id="servs">Cargando…</div></section>
+<footer>© 2026 Hotel Lumina · Todos los derechos reservados</footer>
+
+<script>
+const $=id=>document.getElementById(id);
+const fmt=x=>'$'+Number(x).toLocaleString('es-MX',{minimumFractionDigits:2});
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let S={};
+const hoy=new Date().toISOString().slice(0,10);
+document.querySelector('[name=ci]').min=hoy;document.querySelector('[name=co]').min=hoy;
+
+(async()=>{try{
+ const t=await (await fetch('/api/tipos')).json();
+ $('tipos').innerHTML=t.map(x=>`<div class="card"><h3>${esc(x.nombre_tipo)}</h3><p>${esc(x.descripcion)}</p><p>Hasta ${x.capacidad_personas} persona(s)</p><div class="price">${fmt(x.precio_noche)} <small>/ noche</small></div></div>`).join('');
+ const s=await (await fetch('/api/servicios')).json();
+ $('servs').innerHTML=s.map(x=>`<div class="card"><h3>${esc(x.nombre_servicio)}</h3><p>${esc(x.categoria)}</p><div class="price">${fmt(x.precio)}</div></div>`).join('');
+}catch(e){$('tipos').textContent='No se pudo conectar con el servidor.'}})();
+
+$('bus').onsubmit=async e=>{
+ e.preventDefault();const f=e.target;
+ S={ci:f.ci.value,co:f.co.value,num:f.num.value};
+ const r=await fetch(`/api/disponibilidad?ci=${S.ci}&co=${S.co}&num=${S.num}`);const d=await r.json();
+ $('resultados').style.display='block';$('datos').style.display='none';
+ if(!r.ok){$('info').textContent=d.error;$('res').innerHTML='';return}
+ S.noches=d.noches;
+ $('info').textContent=`${d.noches} noche(s) · ${S.ci} → ${S.co} · ${S.num} huésped(es)`;
+ $('res').innerHTML=d.tipos.map(t=>{const tot=t.precio_noche*d.noches;return `<div class="card"><h3>${esc(t.nombre_tipo)}</h3><p>${esc(t.descripcion)}</p><p><span class="badge">${t.disponibles?'Quedan '+t.disponibles:'Agotada'}</span></p><div class="price">${fmt(tot)} <small>total · ${fmt(t.precio_noche)}/noche</small></div><br><button class="btn" ${t.disponibles?'':'disabled'} onclick="elegir(${t.id_tipo},'${esc(t.nombre_tipo)}',${tot})">Reservar</button></div>`}).join('')||'<p>No hay habitaciones para esa cantidad de huéspedes.</p>';
+ $('resultados').scrollIntoView({behavior:'smooth'});
+};
+function elegir(id,n,tot){S.tipo=id;$('resumen').textContent=`${n} · ${S.noches} noche(s) · Total ${fmt(tot)}`;$('ok').style.display='none';$('datos').style.display='block';$('datos').scrollIntoView({behavior:'smooth'})}
+
+$('g').onsubmit=async e=>{
+ e.preventDefault();const b=$('btn');b.disabled=true;
+ try{
+  const r=await fetch('/api/reservar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...Object.fromEntries(new FormData(e.target)),tipo:S.tipo,num:S.num,ci:S.ci,co:S.co})});
+  const d=await r.json();$('ok').style.display='block';
+  $('ok').innerHTML=r.ok?`<h3 style="margin:0 0 8px">¡Reservación confirmada!</h3><p>Folio <b>#${d.folio}</b> · ${esc(d.tipo)} · habitación ${esc(d.habitacion)}<br>${d.noches} noche(s)<br><b style="color:var(--gold);font-size:22px">Total: ${fmt(d.total)}</b></p>`:`<b>${esc(d.error)}</b>`;
+  if(r.ok)e.target.reset();
+ }catch(x){$('ok').style.display='block';$('ok').innerHTML='<b>Error de conexión. Intenta de nuevo.</b>'}
+ b.disabled=false;
+};
+</script>
+</body>
+</html>
